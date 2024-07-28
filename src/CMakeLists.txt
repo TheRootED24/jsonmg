@@ -15,6 +15,8 @@ project(
 
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
 add_library(jsonmg SHARED jsonmg.c)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fpic")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 target_link_libraries(jsonmg libmongoose.so)
 target_link_libraries(jsonmg liblua.so)
 target_link_libraries(jsonmg m)

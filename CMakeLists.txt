@@ -23,13 +23,7 @@ string(TIMESTAMP RELEASE_DATE)
 message(STATUS "RELEASE_DATE: ${RELEASE_DATE}")
 message(STATUS "VERSION:      ${VERSION}")
 
-configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/src/jsonmg.h.in
-                ${CMAKE_CURRENT_BINARY_DIR}/src/jsonmg.h )
-
 
 set(CMAKE_BUILD_TYPE "Debug")
-
-find_package(Lua5.15 REQUIRED)
-find_package(mongoose REQUIRED)
 
 add_subdirectory(src)

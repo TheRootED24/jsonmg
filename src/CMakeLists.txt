@@ -8,7 +8,7 @@ project(
 
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
 add_library(jsonmg SHARED jsonmg.c)
-target_link_libraries(jsonmg /usr/local/lib/libmongoose.so)
-target_link_libraries(jsonmg /usr/local/lib/liblua.so)
+target_link_libraries(jsonmg libmongoose.so)
+target_link_libraries(jsonmg liblua.so)
 target_link_libraries(jsonmg m)
 install(TARGETS jsonmg DESTINATION /usr/lib/lua/jsonmg/)

@@ -4,12 +4,9 @@ cmake_minimum_required(VERSION 3.1...3.27)
 # Build Environment
 #-------------------------------------------------------------------------------
 
-if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-  add_definitions(-fpic -W -DMG_ENABLE_LINES -DMG_ENABLE_OPENSSL)
-  add_compile_options(-Werror -Wall)
-endif()
+ add_definitions(-fpic -W -DMG_ENABLE_LINES -DMG_ENABLE_OPENSSL)
+ add_compile_options(-W -Wall -Werror -Wextra -O3)
 
- 
 project(
   jsonmg
   VERSION 1.0

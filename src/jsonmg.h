@@ -52,6 +52,7 @@ typedef struct
         bool isParent;
         bool isChild;
         bool isNested;
+        bool unSuppoted;
         char *json;
         const char *key;
 } parseLua;

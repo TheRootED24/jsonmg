@@ -91,6 +91,7 @@ static const char *arrayNumber = "%f";
 static const char *endArray = "]";
 static const char *newObject = "{";
 static const char *newKeyObject = "%s:{";
+static const char *nestedKeyObject = "{%s:";
 static const char *endObject = "}";
 
 #endif /* JSONMG_H */

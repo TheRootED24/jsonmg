@@ -68,9 +68,6 @@ int nextClose[MAX_DEPTH];
 
 bool isArrStr = false, isArrNum = false, isArrObj = false;
 
-
-char jstr[MAX_JSON_LEN] = {0};
-
 static char buf[MAX_JSON_LEN];
 static const char *nextJson = ",";
 static const char *kvString = "%s:\"%s\"";

@@ -43,7 +43,7 @@ static void stringify(lua_State *L, int index, parseLua *self)
 
         while (lua_next(L, -2))
         {
-                if(self->isParent != 1 && self->isChild == 0)
+                if(self->isParent != 1 && self->isChild == 0 && !self->unSuppoted)
                 {
                         // comma control
                         lua_pushstring(L, self->json);
@@ -53,6 +53,7 @@ static void stringify(lua_State *L, int index, parseLua *self)
                         lua_remove(L, -1);
 
                 }
+                self->unSuppoted = false;
                 // copy the key so that lua_tostring does not modify the original
                 lua_pushvalue(L, -2);
                 // stack now contains: -1 => key; -2 => value; -3 => key; -4 => table
@@ -129,7 +130,8 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                 tableType = lua_objlen(L, index) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
                                 self->isParent = true;
                                 break;
-                        }
+                        }                      
+                       break;
                         /* KEY IS A STRING || NUMBER*/
                         case LUA_TSTRING:
                         case LUA_TNUMBER:
@@ -352,8 +354,20 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                 
                                 break;
                                 }
+                            
                         }
-                       
+                        switch(valtype)
+                        {
+                                case LUA_TFUNCTION:
+                                case LUA_TUSERDATA:
+                                case LUA_TLIGHTUSERDATA:
+                                case LUA_TNONE:
+                                case LUA_TTHREAD:
+                                case LUA_TNIL:
+                                        self->unSuppoted = true;
+                                break; 
+                        }
+                        
                 }
                 // pop value + copy of key, leaving original key
                 tableType = lua_objlen(L, index) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;

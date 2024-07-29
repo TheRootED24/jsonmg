@@ -158,7 +158,7 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                         {
                                                                 //printf("{");
                                                                 lua_pushstring(L, self->json);
-                                                                lua_pushstring(L, "{");
+                                                                lua_pushstring(L, newObject);
                                                                 lua_concat(L, 2);
                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                 lua_remove(L, -1);

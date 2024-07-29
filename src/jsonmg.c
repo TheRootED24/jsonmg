@@ -118,6 +118,7 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                         lua_concat(L, 2);
                                                         strcpy(self->json, lua_tostring(L, -1));
                                                         lua_remove(L, -1);
+                                                        self->isNested = true;
                                                 } 
                                                 break; 
                                         }
@@ -153,15 +154,17 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                 lua_remove(L, -1);
                                                         }
                                                                 
-                                                        else if(tableType == JSON_OBJECT_TYPE || (tableType == JSON_ARRAY_TYPE && lua_objlen(L, -2) == 0))
+                                                        else if(tableType == JSON_OBJECT_TYPE || (tableType == JSON_ARRAY_TYPE && lua_objlen(L, -2) == 0 && self->isNested == 0) )
                                                         {
                                                                 //printf("{");
                                                                 lua_pushstring(L, self->json);
-                                                                lua_pushstring(L, newObject);
+                                                                lua_pushstring(L, "{");
                                                                 lua_concat(L, 2);
                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                 lua_remove(L, -1);
+                                                                self->isNested = true;
                                                         }
+                                                        
                                                         
                                                 }
                                                  /* KEY = STRING -1: VAL = TABLE -2*/    
@@ -200,7 +203,16 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                         lua_remove(L, -1); 
                                                                 }
                                                         }
-                                                        else
+                                                        else if(self->isNested == 0)
+                                                        {
+                                                                //printf("%s:{", key);
+                                                                lua_pushstring(L, self->json);
+                                                                lua_pushfstring(L, nestedKeyObject, key);
+                                                                lua_concat(L, 2);
+                                                                strcpy(self->json, lua_tostring(L, -1));
+                                                                lua_remove(L, -1); 
+                                                        }
+                                                        else if(self->isNested == 1)
                                                         {
                                                                 //printf("%s:{", key);
                                                                 lua_pushstring(L, self->json);
@@ -215,6 +227,7 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                 stringify(L, -2, self);
                                                 tableType = lua_objlen(L, index) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
                                                 self->isParent = false;
+                                                self->isNested = false;
                                                 break;
                                         }
                                         /* VAL */
@@ -227,6 +240,7 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                 {
                                                         const char *key = lua_tostring(L, -1);
                                                         const char *val = lua_tostring(L, -2);
+                                                        tableType = lua_objlen(L, index) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
                                                         /* KEY = NUMBER -1 */
                                                         if(keytype == LUA_TNUMBER)
                                                         {
@@ -238,7 +252,27 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                 lua_remove(L, -1);
                                                         }
                                                         /* KEY = STRING -1: VAL = STRING -2*/
-                                                        else if(keytype == LUA_TSTRING)
+                                                        else if(keytype == LUA_TSTRING && tableType == JSON_OBJECT_TYPE && self->isNested == 1)
+                                                        {
+                                                                //printf("%s:\"%s\"", key,val);
+                                                                lua_pushstring(L, self->json);
+                                                                lua_pushfstring(L, kvString, key, val);
+                                                                lua_concat(L, 2);
+                                                                strcpy(self->json, lua_tostring(L, -1));
+                                                                lua_remove(L, -1);
+                                                        }
+                                                         else if(keytype == LUA_TSTRING && (tableType == JSON_ARRAY_TYPE && self->isNested == 0 ))
+                                                        {
+                                                                //printf("%s:\"%s\"", key,val);
+                                                                lua_pushstring(L, self->json);
+                                                                lua_pushstring(L, newObject);
+                                                                lua_pushfstring(L, kvString, key, val);
+                                                                lua_pushstring(L, endObject);
+                                                                lua_concat(L, 4);
+                                                                strcpy(self->json, lua_tostring(L, -1));
+                                                                lua_remove(L, -1);
+                                                        }
+                                                         else if(keytype == LUA_TSTRING && (tableType == JSON_ARRAY_TYPE && self->isNested == 1 ))
                                                         {
                                                                 //printf("%s:\"%s\"", key,val);
                                                                 lua_pushstring(L, self->json);

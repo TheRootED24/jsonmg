@@ -338,7 +338,7 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                 const char *key = lua_tostring(L, -1);
                                                                 lua_Number lnum = lua_tonumber(L, -2);
                                                                 
-                                                                if((self->ptype == JSON_ARRAY_TYPE && self->ctype == JSON_ARRAY_TYPE ) || depth < 1)
+                                                                if((self->ptype == JSON_ARRAY_TYPE && self->ctype == JSON_ARRAY_TYPE ) && depth < 1)
                                                                 {
                                                                         // we need to nest the kv pair
                                                                         lua_pushstring(L, self->json);

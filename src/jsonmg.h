@@ -59,6 +59,7 @@ typedef struct
         bool unSuppoted;
         bool parentMode;
         bool childMode;
+        bool arrayMode;
         bool nestMode;
         char *json;
         const char *key;
@@ -69,27 +70,37 @@ static int depth = 0;
 
 parseLua pLr = {.ttype = -1, .ptype = -1, .ctype = -1, .ktype = -1, .vtype = -1, .nkey = 0, .isRoot = true, 
                                                 .parentMode = true, .childMode = false, .isParent = false, .isChild = false, .isNested = false, .json = buf, .key = NULL};
+
 static double num = 0;
 static bool b;
 static long l;
 static char *sstr;
 
+
 int nextClose[MAX_DEPTH];
+
 bool isArrStr = false, isArrNum = false, isArrObj = false;
+
 
 static const char *nextJson = ",";
 static const char *kvString = "%s:\"%s\"";
 static const char *nestedkvString = "{%s:\"%s\"}";
 static const char *kvNumber = "%s:%f";
+static const char *arraykvNumber = "\"%s\":%f";
+static const char *arraykvString = "\"%s\":\"%s\"";
 static const char *nestedkvNumber = "{%s:%f}";
 static const char *newKeyArray = "%s:[";
+//static const char *nestedKeyArray = "{%s:[";
 static const char *newArray = "[";
 static const char *arrayString = "\"%s\"";
 static const char *arrayNumber = "%f";
+//static const char *nestedArrayNumber = "[%f]";
 static const char *endArray = "]";
+//static const char *endNestedArray = "]}";
 static const char *newObject = "{";
 static const char *newKeyObject = "%s:{";
 static const char *nestedKeyObject = "{%s:{";
 static const char *endObject = "}";
+//static const char *endNestedObject = "}}";
 
 #endif /* JSONMG_H */

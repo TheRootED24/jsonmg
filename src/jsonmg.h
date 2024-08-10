@@ -41,21 +41,6 @@ enum JSON_TYPES
         JSON_ROOT_TYPE          // 6
 };
 
-static enum PARSE_TYPES
-{
-        K_ARRAY,
-        N_ARRAY,
-        K_OBJECT,
-        N_OBJECT,
-        //NESTED
-        NK_ARRAY,
-        NN_ARRAY,
-        NK_OBJECT,
-        NN_OBJECT,
-        SN_OBJECT, // --> need to tostring the numeric key
-        SN_ARRAY,  // --> need to tostring the numeric key
-};
-
 typedef struct
 {
         int depth;

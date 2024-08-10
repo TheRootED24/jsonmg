@@ -1,188 +1,43 @@
 #include "jsonmg.h"
 
-// PARSER CONTROL MODES
-static int parse_mode   = -1, 
-           root_type    = -1,
-           parent_type  = -1;
-
-// JSON NEXT CLOSE TYPE STACK
-const char* next_close[MAX_DEPTH];
-static int nc_cnt = 1;
-
-static void push_root_close(const char *closeType)
-{
-        next_close[0] = closeType;     
-}
-
-static const char* get_root_close()
-{
-        return next_close[0];   
-}
-
-static void pop_root_close()
-{
-        next_close[0] = NULL;
-}
-
-static void push_next_close(const char *closeType)
-{
-        next_close[nc_cnt++] = closeType;
-        
-}
-
-static const char* get_next_close()
-{
-        if(nc_cnt > 0)    
-                return(next_close[nc_cnt - 1]);
-        else
-                return NULL;    
-}
-
-static void pop_next_close()
-{
-        if(nc_cnt > 1)
-        {
-                nc_cnt--;
-                next_close[nc_cnt] = NULL;
-        }
-}
-
-static int get_parent_type()
-{
-        const char* ptype = get_next_close();
-        if(ptype == NULL)
-                ptype = get_root_close();
-        if(DEBUG > 1)
-                printf("\n\nNext Close Type [ %s ]\n\n", ptype);
-        if((strcmp(ptype, endObject) == 0))
-                return JSON_OBJECT_TYPE;
-        else if((strcmp(ptype, endArray) == 0))
-                return JSON_ARRAY_TYPE;
-        else if((strcmp(ptype, endNestedKeyObject) == 0))
-                return JSON_NESTED_OBJECT_TYPE;
-        else if((strcmp(ptype, endNestedKeyArray) == 0))
-                return JSON_NESTED_ARRAY_TYPE;
-        else
-                return -1; 
-}
-
-void dumpstack(lua_State *L)
-{
-        int top = lua_gettop(L);
-        for (int i = 1; i <= top; i++)
-        {
-                printf("%d\t%s\t", i, luaL_typename(L, i));
-                switch (lua_type(L, i))
-                {
-                case LUA_TNUMBER:
-                        printf("%g\n", lua_tonumber(L, i));
-                        break;
-                case LUA_TSTRING:
-                        printf("%s\n", lua_tostring(L, i));
-                        break;
-                case LUA_TBOOLEAN:
-                        printf("%s\n", (lua_toboolean(L, i) ? "true" : "false"));
-                        break;
-                case LUA_TNIL:
-                        printf("%s\n", "nil");
-                        break;
-                default:
-                        printf("%p\n", lua_topointer(L, i));
-                        break;
-                }
-        }
-}
-
-static void esc_str(char *s)
-{
-        size_t length = strlen(s);
-        size_t i;
-
-        static const char *simple = "\\\'\"";
-        static const char *complex = "\a\b\f\n\r\t\v";
-        static const char *complexMap = "abfnrtv";
-
-        for (i = 0; i < length; i++)
-        {
-                char *p;
-                if (strchr(simple, s[i]))
-                {
-                        putchar('\\');
-                        putchar(s[i]);
-                }
-                else if((p = strchr(complex, s[i])))
-                {
-                        size_t idx = p - complex;
-                        putchar('\\');
-                        putchar(complexMap[idx]);
-                }
-                else if (isprint(s[i]))
-                {
-                        putchar(s[i]);
-                }
-                else
-                {
-                        printf("\\%03o", s[i]);
-                }
-        }
-}
-
-
-static void set_json_root(int parse_type)
-{
-        printf("\n\nSetting Parse Mode ----->>>>>>\n\n");
-        char *next_type = parse_type == JSON_ARRAY_TYPE ? "JSON_ARRAY_MODE" : "JSON_OBJECT_MODE";
-        char *cur_type = parse_mode == JSON_ARRAY_TYPE ? "JSON_ARRAY_MODE" : "JSON_OBJECT_MODE";
-
-        printf("#\n##################################################################################################[[    DEPTH: %d SETTING ROOT PARSE MODE: [ %s ]    ]]###################################################################################################\n", depth, next_type);
-        root_type = parse_type;                        
-        parent_type = parse_type;
-        parse_mode = parse_type;
-        return;
-}
-
-static void stepDepth(char sign, int level)
-{
-        if(DEBUG > 0)
-                fprintf(stderr, "STEP DEPTH ---->>>>>> Sign %c Level: %d\n", sign, level);
-        if(level > 1 && depth > 0) depth = 0;
-        if(level == 1 && sign == '-' && depth > 0) depth--;
-        if(level == 1 && sign == '+') depth++;  
-}
-
-
 static void stringify(lua_State *L, int index, parseLua *self)
-{       
+{ 
+        parseLua pL = {.ttype = -1, .ptype = -1, .ctype = -1, .ktype = -1, .vtype = -1, .nkey = 0, .isRoot = false, 
+                                                .isParent = false, .isChild = false, .isNested = false, .json = buf, .key = NULL};
+
         int tableType = lua_objlen(L, index) > 1 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
                
         if(self->isRoot)
         {
                 lua_pushstring(L, self->json);
                 tableType == JSON_ARRAY_TYPE ? lua_pushstring(L, newArray) : lua_pushstring(L, newObject);
-                tableType == JSON_ARRAY_TYPE ? push_root_close(endArray) : push_root_close(endObject);
-                root_type = tableType;
-                set_json_root(tableType); 
                 lua_concat(L, 2);
                 strcpy(self->json, lua_tostring(L, -1));
                 lua_remove(L, -1);
 
-                self->isParent = false;
-                self->isRoot = true;
-                self->rtype = tableType;
-                self->ptype = parent_type;
-                self->ctype = parse_mode;
-                depth = 0;
+                pLr.isRoot = true;
+                pLr.ttype = tableType;
+                self->isParent = true;
+                self->isRoot = false;
+                pL.isRoot = true;
         }
-        
-        if(self->isRoot && DEBUG > 0)
-                 printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ROOT DEPTH %d @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n", depth);
-        
-        if(DEBUG > 0)
-                printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ DEPTH %d  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n", depth);
-        self->parentMode = true;
-        self->isParent = true;
-        self->isRoot = false;
 
+        if(!pL.isRoot && self->ctype == JSON_ARRAY_TYPE && !pLr.arrayMode)
+        {
+                pLr.depth = 0;
+                pLr.arrayMode = true;
+        }
+        else if(!pL.isRoot)
+        {
+                depth++;
+                if(!pLr.arrayMode)
+                        pLr.depth = depth;
+        }
+       
+        self->parentMode = true;
+        pL.ttype = tableType;
+        self->isParent = true;
+        
         lua_pushvalue(L, index);
         lua_pushnil(L);
 
@@ -198,6 +53,7 @@ static void stringify(lua_State *L, int index, parseLua *self)
                         lua_remove(L, -1);
 
                 }
+
                 self->unSuppoted = false;
                 // copy the key so that lua_tostring does not modify the original
                 lua_pushvalue(L, -2);
@@ -205,446 +61,64 @@ static void stringify(lua_State *L, int index, parseLua *self)
                 int keytype = lua_type(L, -1);
                 int valtype = lua_type(L, -2);
 
+                pL.ktype = keytype;
+                pL.vtype = valtype;
+
                 self->ttype = tableType;
                 self->ktype = keytype;
                 self->vtype = valtype;
-               
-
-                /* KEY IS A STRING || NUMBER */
-                switch (valtype)
-                {      
+                
+                /* KEY */
+                switch (keytype)
+                {
+                        /* KEY IS A TABLE */
                         case LUA_TTABLE:
-                        {       
-                                parse_mode = lua_objlen(L, -2) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
-                                printf("\n\n\n\n\n\n\n\n\n\n jsonType Size: %d\n\n\n\n\n\n\n\n\n\n", parse_mode);
-                                printf("################################################################################# NEW JSON PARENT %s DEPTH: %d ####################################################################\n", 
-                                                parse_mode == JSON_ARRAY_TYPE ? "JSON Array" : "JSON Object",  depth);
-                                
-                                // GET THE ROOT/PARENT TYPE TO DETERMINE IF NESTING IS NEEDED
-                                if(nc_cnt > 1)
-                                        parent_type = get_parent_type();
-                                else
-                                        parent_type = root_type;
-
+                        {       /* VAL IS A TABLE */
+                                NESTED:
                                 self->isParent = true;
-                                self->isChild = false;
-                                static int rnd = 0;
-                                dumpstack(L);
-                                
-                                self->ptype = parent_type;
-                                self->ctype = parse_mode;
-                                self->vtype = LUA_TTABLE;
-                                self->childMode = false;
 
-                                if(DEBUG > 0)
-                                        printf("\nRnd: %d\nRtype: %d\nPtype: %d\nCtype: %d\nVtype: %d\nKtype: %d\n\n", rnd++, self->rtype, self->ptype, self->ctype, self->vtype, self->ktype);
-                                switch(keytype)
-                                {      
-                                        case LUA_TSTRING:
-                                        case LUA_TNUMBER:
-                                        {
-                                                printf("\n\n\nTABLE parent_type: %d\n\n\n", parent_type);
-                                                switch(parent_type)
-                                                {
-                                                        case JSON_ARRAY_TYPE:
-                                                        case JSON_NESTED_ARRAY_TYPE:
-                                                        {
-                                                                //parse_mode = parent_type;
-                                                                switch(parse_mode)
-                                                                {
-                                                                        
-                                                                        case JSON_ARRAY_TYPE:
-                                                                        case JSON_NESTED_ARRAY_TYPE:
-                                                                        {
-                                                                                // keyed table array inside and array--> [ %s:[ **MUST BE NESTED** --> [{key:[
-                                                                                const char *key = lua_tostring(L, -1);
+                                if(!self->childMode)
+                                {
+                                        self->rtype = pLr.ttype;
+                                        if(pLr.depth > 1)
+                                                pL.ptype = self->ptype = lua_objlen(L, index) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
+                                        else
+                                                pL.ptype = self->ptype = self->rtype;
 
-                                                                                printf("AT KV\nPARENT ??\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                                switch(keytype)
-                                                                                {
-                                                                                        case LUA_TSTRING:
-                                                                                        {
-                                                                                                lua_pushstring(L, self->json);
-                                                                                                lua_pushfstring(L, nestedKeyArray, key);
-                                                                                                lua_concat(L, 2);
-                                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                                lua_remove(L, -1);
-                                                                                                push_next_close(endNestedKeyArray);
-                                                                                                stepDepth('-', 2);
-
-                                                                                                //parse_mode == JSON_ARRAY_TYPE ? lua_pushfstring(L, nestedKeyArray, key) : lua_pushfstring(L, newNestedKeyObject, key);
-                                                                                                break;
-                                                                                        }
-                                                                                        case LUA_TNUMBER:
-                                                                                        {
-                                                                                                lua_pushstring(L, self->json);
-                                                                                                lua_pushfstring(L, newArray, key);
-                                                                                                lua_concat(L, 2);
-                                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                                lua_remove(L, -1);
-                                                                                                push_next_close(endArray);
-                                                                                                stepDepth('-', 2);
-                                                                                                break;
-                                                                                        }
-                                                                                        break;
-                                                                                }
-                                                                                printf("****************************************************************   NESTING PARENT %s -->>\n", key);
-                                                                                break;
-                                                                        }
-                                                                        case JSON_OBJECT_TYPE:
-                                                                        case JSON_NESTED_OBJECT_TYPE:
-                                                                        {
-                                                                                // keyed table array inside and array--> [ %s:[ **MUST BE NESTED** --> [{key:[
-                                                                                const char *key = lua_tostring(L, -1);
-                                                                                printf("AT KV\nPARENT ??\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                                
-                                                                                switch(keytype)
-                                                                                {
-                                                                                        case LUA_TSTRING:
-                                                                                        {
-                                                                                                lua_pushstring(L, self->json);
-                                                                                                if(parent_type != JSON_OBJECT_TYPE)
-                                                                                                {
-                                                                                                        lua_pushfstring(L, newNestedKeyObject, key);
-                                                                                                        push_next_close(endNestedKeyObject);
-                                                                                                }
-                                                                                                        
-                                                                                                else
-                                                                                                {
-                                                                                                        lua_pushfstring(L, newKeyObject, key);
-                                                                                                        push_next_close(endObject);
-                                                                                                }
-                                                                                                lua_concat(L, 2);
-                                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                                lua_remove(L, -1);
-                                                                                                stepDepth('+', 1);
-                                                                                                break;
-                                                                                        }
-                                                                                        case LUA_TNUMBER:
-                                                                                        {
-                                                                                                lua_pushstring(L, self->json);
-                                                                                                lua_pushfstring(L, newObject);
-                                                                                                lua_concat(L, 2);
-                                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                                lua_remove(L, -1);
-                                                                                                push_next_close(endObject);
-                                                                                                stepDepth('+', 1);
-                                                                                                break;
-                                                                                        }
-                                                                                        break;
-                                                                                }
-                                                                                printf("****************************************************************   NESTING PARENT %s -->>\n", key);
-                                                                               break;
-                                                                        }
-                                                                        break;
-                                                                }
-                                                                break;
-                                                        }
-                                                        case JSON_OBJECT_TYPE:
-                                                        case JSON_NESTED_OBJECT_TYPE:
-                                                        {
-                                                                //parse_mode = parent_type;
-                                                                switch(parse_mode)
-                                                                {
-                                                                        
-                                                                        case JSON_ARRAY_TYPE:
-                                                                        case JSON_NESTED_ARRAY_TYPE:
-                                                                        {
-                                                                                // keyed table array inside and array--> [ %s:[ **MUST BE NESTED** --> [{key:[
-                                                                                const char *key = lua_tostring(L, -1);
-                                                                                printf("AT KV\nPARENT ??\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                                switch(keytype)
-                                                                                {
-                                                                                        case LUA_TSTRING:
-                                                                                        {
-                                                                                                lua_pushstring(L, self->json);
-                                                                                                lua_pushfstring(L, newKeyArray, key);
-                                                                                                lua_concat(L, 2);
-                                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                                lua_remove(L, -1);
-                                                                                                push_next_close(endArray);
-                                                                                                stepDepth('-', 2);
-                                                                                                break;
-                                                                                        }
-                                                                                        case LUA_TNUMBER:
-                                                                                        {
-                                                                                                lua_pushstring(L, self->json);
-                                                                                                lua_pushfstring(L, newArray);
-                                                                                                lua_concat(L, 2);
-                                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                                lua_remove(L, -1);
-                                                                                                push_next_close(endArray);
-                                                                                                stepDepth('-', 2);
-                                                                                                break;
-                                                                                        }
-                                                                                        break;
-                                                                                }
-                                                                                printf("****************************************************************   NESTING PARENT %s -->>\n", key);
-                                                                                break;
-                                                                        }
-                                                                        case JSON_OBJECT_TYPE:
-                                                                        case JSON_NESTED_OBJECT_TYPE:
-                                                                        {
-                                                                                const char *key = lua_tostring(L, -1);
-                                                                                printf("AT KV\nPARENT ??\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                                
-                                                                                switch(keytype)
-                                                                                {
-                                                                                        case LUA_TSTRING:
-                                                                                        { 
-                                                                                                lua_pushstring(L, self->json);
-                                                                                                lua_pushfstring(L, newKeyObject, key);
-                                                                                                lua_concat(L, 2);
-                                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                                lua_remove(L, -1);
-                                                                                                push_next_close(endObject);
-                                                                                                stepDepth('+', 1);   
-                                                                                                break;
-                                                                                        }
-                                                                                        case LUA_TNUMBER:
-                                                                                        {
-                                                                                                lua_pushstring(L, self->json);
-                                                                                                lua_pushfstring(L, newObject);
-                                                                                                lua_concat(L, 2);
-                                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                                lua_remove(L, -1);
-                                                                                                push_next_close(endObject);
-                                                                                                stepDepth('+', 1);
-                                                                                                break;
-                                                                                        }
-                                                                                        break;
-                                                                                }
-                                                                                printf("****************************************************************   NESTING PARENT %s -->>\n", key);
-                                                                                break;
-                                                                        }
-                                                                        break;
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                }       
-                                                break;
-                                        }
-                                        break;
-
+                                        self->ctype = lua_objlen(L, -1) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
+                                        self->vtype = valtype; 
                                 }
-                                stringify(L, -2, self);
-                                self->isParent = false;
-                                self->isChild = true;
-                                break;
-                        }
-                        /* VAL IS A STRING */              
-                        case LUA_TSTRING:
-                        {
+                                if(self->childMode)
+                                {
+                                        pL.rtype = self->rtype = pLr.ttype;
 
-                                parent_type = self->get_type();
-                                if(DEBUG > 1)
-                                        printf("\n\nPARENT TYPE AT STRING: %d\n\nCHILD TYPE AT STRING: %d\n\n\n\n", parent_type, self->ctype);
-                                switch(parent_type)
-                                {     
-                                        case JSON_ARRAY_TYPE:
-                                        case JSON_NESTED_ARRAY_TYPE:
-                                        {
-                                                switch(parse_mode)
-                                                {
-                                                        case JSON_ARRAY_TYPE:
-                                                        {
-                                                                // string key string value in an array in an array [["dick":"shrivells" ** MUST BE NESTED 
-                                                                const char *key = lua_tostring(L, -1);
-                                                                const char *val = lua_tostring(L, -2);
-                                                                printf("AT KV\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                printf("KV-------------->  Key: %s Val: %s\n", key, val);
-                                                                
-                                                                switch(keytype)
-                                                                {
-                                                                        case LUA_TSTRING:
-                                                                        {
-                                                                                lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, nestedkvString, key, val);
-                                                                                dumpstack(L);
-                                                                                lua_concat(L, 2);
-                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
-                                                                                break;
-                                                                        }
-                                                                        case LUA_TNUMBER:
-                                                                        {
-                                                                                lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, arrayString, val);
-                                                                                dumpstack(L);
-                                                                                lua_concat(L, 2);
-                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
-                                                                                break;  
-                                                                        }
-                                                                        break;
-                                                                }
-                                                                break;
-                                                        }
-                                                        case JSON_OBJECT_TYPE:
-                                                        {
-                                                                // string key string value in an array in an array [["dick":"shrivells" ** MUST BE NESTED 
-                                                                const char *key = lua_tostring(L, -1);
-                                                                const char *val = lua_tostring(L, -2);
+                                        if(pLr.depth > 1 && !pLr.arrayMode)
+                                                pL.ptype = self->ptype = lua_objlen(L, index) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
+                                        else if(pLr.arrayMode)
+                                                pL.ptype = self->ptype = JSON_ARRAY_TYPE;
+                                        else
+                                                pL.ptype = self->ptype = self->rtype;
 
-                                                                printf("AT KV\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                printf("KV-------------->  Key: %s Val: %s\n", key, val);
-                                                                
-                                                                switch(keytype)
-                                                                {
-                                                                        case LUA_TSTRING:
-                                                                        {
-                                                                                lua_pushstring(L, self->json);
-                                                                                if(parent_type != JSON_OBJECT_TYPE)
-                                                                                        lua_pushfstring(L, nestedkvString, key, val);
-                                                                                else
-                                                                                        lua_pushfstring(L, kvString, key, val);
-
-                                                                                dumpstack(L);
-                                                                                lua_concat(L, 2);
-                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
-                                                                                break;
-                                                                        }
-                                                                        case LUA_TNUMBER:
-                                                                        {
-                                                                                lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvString, key, val); 
-                                                                                dumpstack(L);
-                                                                                lua_concat(L, 2);
-                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
-                                                                                break;  
-                                                                        }
-                                                                        break;
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                }
-                                                break;
-                                        }
-                                        case JSON_OBJECT_TYPE:
-                                        case JSON_NESTED_OBJECT_TYPE:
-                                        {
-                                                //parse_mode = parent_type;
-                                                switch(parse_mode)
-                                                {
-                                                        case JSON_ARRAY_TYPE:
-                                                        {
-                                                                // string key string value in an array in an array [["dick":"shrivells" ** MUST BE NESTED 
-                                                                const char *key = lua_tostring(L, -1);
-                                                                const char *val = lua_tostring(L, -2);
-                                                                printf("AT KV\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                printf("KV-------------->  Key: %s Val: %s\n", key, val);
-                                                                
-                                                                switch(keytype)
-                                                                {
-                                                                        case LUA_TSTRING:
-                                                                        {
-                                                                                lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, nestedkvString, key, val); 
-                                                                                dumpstack(L);
-                                                                                lua_concat(L, 2);
-                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
-                                                                                break;
-                                                                        }
-                                                                        case LUA_TNUMBER:
-                                                                        {
-                                                                                lua_pushstring(L, self->json);
-                                                                                //if(depth < 1 && !arrMode)
-                                                                                if(parent_type != JSON_ARRAY_TYPE)
-                                                                                        lua_pushfstring(L, kvString, key, val);
-                                                                                else //if(depth < 1 && arrMode)
-                                                                                        lua_pushfstring(L, arrayString, val);
-
-                                                                                dumpstack(L);
-                                                                                lua_concat(L, 2);
-                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
-                                                                                break;  
-                                                                        }
-                                                                        break;
-                                                                }
-                                                                break;
-                                                        }
-                                                        case JSON_OBJECT_TYPE:
-                                                        {
-                                                                // string key string value in an array in an array [["dick":"shrivells" ** MUST BE NESTED 
-                                                                const char *key = lua_tostring(L, -1);
-                                                                const char *val = lua_tostring(L, -2);
-                                                                printf("AT KV\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                printf("KV-------------->  Key: %s Val: %s\n", key, val);
-                                                                
-                                                                switch(keytype)
-                                                                {
-                                                                        case LUA_TSTRING:
-                                                                        {
-                                                                                lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvString, key, val);
-                                                                                dumpstack(L);
-                                                                                lua_concat(L, 2);
-                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
-                                                                                break;
-                                                                        }
-                                                                        case LUA_TNUMBER:
-                                                                        {
-                                                                                lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvString, key, val);
-                                                                                dumpstack(L);
-                                                                                lua_concat(L, 2);
-                                                                                strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
-                                                                                //parse_mode == JSON_ARRAY_TYPE ? lua_pushfstring(L, arrayString, val) : lua_pushfstring(L, kvString, key, val);  
-                                                                                break;  
-                                                                        }
-                                                                        break; 
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                }
-                                                break;
-                                        }
-                                        break;
-
-                                }       
-                                self->isParent = false;
-                                self->isChild = true;  
-                                break;
-                        }
-                        /* VAL IS A NUMBER */
-                        case LUA_TNUMBER:
-                        {
-                                parent_type = self->get_type();
-                                if(DEBUG > 1)
-                                        printf("AT NUMBER NEXT CLOSE TYPE : %s\n\n\n\n", get_next_close());
-
-                                switch(parent_type)
+                                        pL.ctype = self->ctype = lua_objlen(L, -2) > 0 ? JSON_ARRAY_TYPE : JSON_OBJECT_TYPE;
+                                        pL.vtype = self->vtype = keytype;
+                                        pL.childMode = self->childMode = false;
+                                        pL.rtype = self->isChild = false;
+                                }
+                                switch(self->ptype)
                                 {
                                         case JSON_ARRAY_TYPE:
-                                        case JSON_NESTED_ARRAY_TYPE:
                                         {
-                                                switch(parse_mode)
+                                                switch(self->ctype)
                                                 {
                                                         case JSON_ARRAY_TYPE:
                                                         {
-                                                                const char *key = lua_tostring(L, -1);
-                                                                lua_Number lnum = lua_tonumber(L, -2);
-                                                                
-                                                                if(DEBUG > 1)
-                                                                        printf("AT KV\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                
-                                                                switch(keytype)
+                                                                switch(self->vtype) 
                                                                 {
                                                                         case LUA_TSTRING:
                                                                         {
-                                                                                if(DEBUG > 0)
-                                                                                        printf("ARR --> ARR -> KN Key: %s Num: %g\n", key, lnum);
+                                                                                const char *key = lua_tostring(L, -1);
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, nestedkvNumber, key, lnum);
+                                                                                lua_pushfstring(L, newKeyArray, key);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -652,10 +126,8 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                         }
                                                                         case LUA_TNUMBER:
                                                                         {
-                                                                                if(DEBUG > 0)
-                                                                                        printf("ARR --> ARR --> NN Key: %s NUM: %g\n", key, lnum);
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, arrayNumber,  lnum);
+                                                                                lua_pushfstring(L, newArray);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -663,72 +135,63 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                         }
                                                                         break;
                                                                 }
-                                                                break;
+                                                                break;     
                                                         }
                                                         case JSON_OBJECT_TYPE:
                                                         {
-                                                                const char *key = lua_tostring(L, -1);
-                                                                lua_Number lnum = lua_tonumber(L, -2);
-                                                                
-                                                                if(DEBUG > 1)
-                                                                        printf("AT KV\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                
-                                                                switch(keytype)
+                                                                switch(self->vtype) 
                                                                 {
                                                                         case LUA_TSTRING:
                                                                         {
-                                                                                
-                                                                                printf("ARR --> OBJ --> KN Key: %s Num: %g\n", key, lnum);
+                                                                                self->cindex = -1;
+                                                                                const char *key = lua_tostring(L, -1);
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvNumber, key, lnum);
+                                                                                if(pLr.depth == 0 && (self->ctype == JSON_OBJECT_TYPE && (self->ptype == JSON_ARRAY_TYPE || pLr.arrayMode)))
+                                                                                {
+                                                                                        lua_pushfstring(L, nestedKeyObject, key);
+                                                                                        pLr.isNested = true;
+                                                                                }
+                                                                                else
+                                                                                        lua_pushfstring(L, newKeyObject, key);
+
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
                                                                                 break;
                                                                         }
+                                      
                                                                         case LUA_TNUMBER:
                                                                         {
-                                                                                if(DEBUG > 0)
-                                                                                        printf("ARR --> OBJ --> NN Key: %s Num: %g\n", key, lnum);
+                                                                                self->cindex = LUA_TNUMBER;
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvNumber, key, lnum);
+                                                                                lua_pushfstring(L,  newObject);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
-                                                                                lua_remove(L, -1);
+                                                                                lua_remove(L, -1); 
                                                                                 break;
                                                                         }
                                                                         break;
                                                                 }
                                                                 break;
                                                         }
-                                                        break;
+                                                        break;    
                                                 }
                                                 break;
                                         }
                                         case JSON_OBJECT_TYPE:
-                                        case JSON_NESTED_OBJECT_TYPE:
                                         {
-                                                switch(parse_mode)
+                                                switch(self->ctype)
                                                 {
                                                         case JSON_ARRAY_TYPE:
                                                         {
-                                                                // string key string value in an array in an array [["dick":"shrivells" ** MUST BE NESTED  "score": 100
-                                                                const char *key = lua_tostring(L, -1);
-                                                                lua_Number lnum = lua_tonumber(L, -2);
-                                                                
-                                                                if(DEBUG > 1)
-                                                                        printf("OBJ --> ARR KV\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                
-                                                                switch(keytype)
+                                                                 switch(self->vtype) 
                                                                 {
                                                                         case LUA_TSTRING:
                                                                         {
-                                                                                if(DEBUG > 0)                     
-                                                                                        printf("OBJ --> ARR --> KN Key: %s Num: %g\n", key, lnum);
+                                                                                self->cindex = LUA_TSTRING;
+                                                                                const char *key = lua_tostring(L, -1);
                                                                                 lua_pushstring(L, self->json);
-                                                                                if(parent_type != JSON_ARRAY_TYPE)
-                                                                                        lua_pushfstring(L, nestedkvNumber, key, lnum);
-                                                                                else
+                                                                                lua_pushfstring(L, newKeyArray, key);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -736,109 +199,268 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                         }
                                                                         case LUA_TNUMBER:
                                                                         {
-                                                                                if(DEBUG > 0)
-                                                                                        printf("OBJ --> ARR --> KN Key: %s Num: %g\n", key, lnum);
+                                                                                self->cindex = LUA_TNUMBER;
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, arrayNumber,  lnum);
+                                                                                lua_pushfstring(L, newArray); 
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
-                                                                                //parse_mode == JSON_ARRAY_TYPE ? lua_pushfstring(L, arrayNumber,  lnum) : lua_pushfstring(L, kvNumber, key, lnum);
                                                                                 break;
                                                                         }
-                                                                       break;
                                                                 }
                                                                 break;
                                                         }
                                                         case JSON_OBJECT_TYPE:
                                                         {
-                                                                // string key string value in an array in an array [["dick":"shrivells" ** MUST BE NESTED  "score": 100
-                                                                const char *key = lua_tostring(L, -1);
-                                                                lua_Number lnum = lua_tonumber(L, -2);
-                                                                //const char *val = lua_tostring(L, -2);
-                                                                
-                                                                if(DEBUG > 1)
-                                                                        printf("OBJ --> OBJ KV\nKEY: %s\nCINDEX: %d\nRtype: %d\nPtype: %d\nCtype: %d\n", key, self->cindex, self->rtype, self->ptype, self->ctype);
-                                                                
-                                                                switch(keytype)
+                                                                switch(self->vtype) 
                                                                 {
                                                                         case LUA_TSTRING:
                                                                         {
-                                                                                if(DEBUG > 0)
-                                                                                        printf("OBJ --> OBJ --> KN Key: %s Num: %g\n", key, lnum);
+                                                                                self->cindex = LUA_TSTRING;
+                                                                                const char *key = lua_tostring(L, -1);
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvNumber, key, lnum);
+                                                                                lua_pushfstring(L, newKeyObject, key);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
-                                                                                //parse_mode == JSON_ARRAY_TYPE ? lua_pushfstring(L, nestedkvString, key, val) : lua_pushfstring(L, kvString, key, val);
                                                                                 break;
                                                                         }
                                                                         case LUA_TNUMBER:
                                                                         {
-                                                                                if(DEBUG > 0)
-                                                                                        printf("OBJ --> OBJ --> KN Key: %s Num: %g\n", key, lnum);
+                                                                                self->cindex = LUA_TNUMBER;
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvNumber, key, lnum);
+                                                                                lua_pushfstring(L, newObject);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
                                                                                 break;
                                                                         }
                                                                         break;
+                                                                        
                                                                 }
                                                                 break;
                                                         }
                                                         break;
                                                 }
                                                 break;
+                                               
                                         }
-                                        break;
-                                }       
+                                }
+                                self->isParent = true;
+                                stringify(L, -2, self);
+                                self->isChild = true;
                                 break;
-                                        
+                                
                         }
-                        case LUA_TBOOLEAN:
-                        case LUA_TFUNCTION:
-                        case LUA_TUSERDATA:
-                        case LUA_TLIGHTUSERDATA:
-                        case LUA_TNONE:
-                        case LUA_TTHREAD:
-                        case LUA_TNIL:
+                        /* KEY IS A STRING || NUMBER */
+                        case LUA_TSTRING:
+                        case LUA_TNUMBER:
+                        {       /* VAL -2*/
+                                switch (valtype)
+                                {      /* VAL IS A TABLE -2 */
+                                        case LUA_TTABLE:
+                                        {
+                                                self->childMode = true;
+                                                self->isChild = false;
+                                                self->parentMode = false;
+
+                                                /* VAL */
+                                                goto NESTED;
+                                                
+                                        }
+                                        /* VAL IS A STRING */              
+                                        case LUA_TSTRING:
+                                        {
+                                                int keyMode = -1;
+                                                // KEY IS A STRING && VAL IS A STRING
+                                                keyMode = keytype == LUA_TSTRING ? LUA_TSTRING : LUA_TNUMBER;
+                                                switch(keyMode)
+                                                {
+                                                        case LUA_TSTRING:
+                                                        {       // KEY IS A STRING && VAL IS A STRING
+                                                                const char *key = lua_tostring(L, -1);
+                                                                const char *val = lua_tostring(L, -2);
+
+                                                                if(pLr.depth == 0) self->ptype = self->rtype;
+
+                                                                if((self->ptype == JSON_ARRAY_TYPE || pLr.arrayMode) && self->ctype == JSON_OBJECT_TYPE && pLr.depth == 0)
+                                                                {
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, nestedkvString, key, val);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }/* NESTED ARRAY KV */
+                                                                else if(self->ptype == JSON_ARRAY_TYPE && self->ctype == JSON_OBJECT_TYPE && self->cindex == LUA_TSTRING )
+                                                                {
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, kvString, key, val);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                else
+                                                                {       
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, kvString, key, val);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                break;
+
+                                                        }
+                                                        case LUA_TNUMBER:
+                                                        {       /* KEY IS A NUMBER && VAL IS A STRING */
+                                                                const char *val = lua_tostring(L, -2);
+
+                                                                if((self->ptype == JSON_ARRAY_TYPE || pLr.arrayMode) || (self->ctype == JSON_ARRAY_TYPE && self->ptype == JSON_ARRAY_TYPE))
+                                                                {
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, arrayString,  val);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                else if(self->ptype == JSON_OBJECT_TYPE && self->ctype == JSON_ARRAY_TYPE)
+                                                                {
+                                                                        const char *key = lua_tostring(L, -1);
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, arraykvString,  key, val);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                else
+                                                                {
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, arrayString,  val);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                break;
+                                                        }
+                                                }
+                                                break;	
+                                        }
+                                        /* VAL IS A NUMBER */
+                                        case LUA_TNUMBER:
+                                        {
+                                                int keyMode = -1;
+                                                /* KEY IS A NUMBER */
+                                                keyMode = keytype == LUA_TSTRING ? LUA_TSTRING : LUA_TNUMBER;
+                                                switch(keyMode)
+                                                {
+                                                        case LUA_TSTRING:
+                                                        {       /* KEY IS A STRING && VAL IS A NUMBER */
+                                                                const char *key = lua_tostring(L, -1);
+                                                                lua_Number lnum = lua_tonumber(L, -2);
+
+                                                                if(((self->ptype == JSON_ARRAY_TYPE || pLr.arrayMode) && self->ctype == JSON_ARRAY_TYPE ) && pLr.depth < 1)  // --> [[
+                                                                {
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, nestedkvNumber, key, lnum);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                else if(self->ptype == JSON_OBJECT_TYPE && self->ctype == JSON_ARRAY_TYPE)
+                                                                {
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, arraykvNumber, key, lnum);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                else if(self->ptype == JSON_ARRAY_TYPE && self->ctype == JSON_OBJECT_TYPE)
+                                                                {
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, kvNumber, key, lnum);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                else
+                                                                {
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, kvNumber, key, lnum);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                break;
+
+                                                        }
+                                                        case LUA_TNUMBER:
+                                                        {       /* KEY IS A NUMBER && VAL IS A NUMBER */
+
+                                                                lua_Number lnum = lua_tonumber(L, -2);
+
+                                                                if(self->ptype == JSON_ARRAY_TYPE && self->ctype == JSON_ARRAY_TYPE)
+                                                                {
+                                                                        // we need to nest the kv pair
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, arrayNumber, lnum);
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1));
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                 else
+                                                                {
+                                                                        lua_Number lnum = lua_tonumber(L, -2);
+                                                                        lua_pushstring(L, self->json);
+                                                                        lua_pushfstring(L, arrayNumber, lnum); // --> {%s:"%f"} [ { 1:2
+                                                                        lua_concat(L, 2);
+                                                                        strcpy(self->json, lua_tostring(L, -1)); // [[{[1]
+                                                                        lua_remove(L, -1);
+                                                                }
+                                                                break;
+                                                        }
+                                                        
+                                                        
+                                                }
+                                                
+                                        }
+                                        
+ 
+                                }
+                        }
+                        self->isParent = false;
+                        self->isChild = true;
+                        switch(valtype)
                         {
-                                self->unSuppoted = true;
-                                break;
-                        }                      
-                        break; 
+                                case LUA_TFUNCTION:
+                                case LUA_TUSERDATA:
+                                case LUA_TLIGHTUSERDATA:
+                                case LUA_TNONE:
+                                case LUA_TTHREAD:
+                                case LUA_TNIL:
+                                        self->unSuppoted = true;
+                                break; 
+                        }
                 }
-                self->isParent = false;
-                self->isChild = true;  
                 // pop value + copy of key, leaving original key
                 lua_pop(L, 2);
                 // stack now contains: -1 => key; -2 => table
         } /* LOOP */
-
-
-        switch(self->ttype)
+        switch(pL.ttype)
         {
                 case JSON_ARRAY_TYPE:
                 {
-                        // printf("]");
                         lua_pushstring(L, self->json);
-                        printf("Array close_type[%d]: [ %s ]--------------------------------------->\n", nc_cnt, get_next_close());
-                        lua_pushstring(L, get_next_close());
+                        if(pLr.isNested  && pLr.depth == 1)
+                        
+                                lua_pushfstring(L, "%s%s", endArray, endArray);
+                        else
+                                lua_pushfstring(L, "%s", endArray);
                         lua_concat(L, 2);
                         strcpy(self->json, lua_tostring(L, -1));
                         lua_remove(L, -1);
-                        pop_next_close();
-                        if(depth > 0) depth--;
-                        if(nc_cnt == 1 && depth == 0)
-                        {
-                                parent_type = get_parent_type();
-                                parse_mode = self->get_type();
-                        }
-                        printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ DEPTH %d SELF %d @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n", depth, self->depth);
-                        printf("\nEN OF ARRAY MODE\n");
+                        pLr.isNested = false;
+                        depth--;
+                        pLr.depth = depth;
+                        pLr.arrayMode = false;
                         break;
                 }
                 case JSON_OBJECT_TYPE:
@@ -846,40 +468,23 @@ static void stringify(lua_State *L, int index, parseLua *self)
 
                         // printf("}");
                         lua_pushstring(L, self->json);
-                        /*if(pLr.isNested && pLr.depth == 0)
+                        if(pLr.isNested && pLr.depth == 0)
                         
                                 lua_pushfstring(L, "%s%s", endObject, endObject);
                         else
                                 lua_pushfstring(L, "%s", endObject);
-                        */
-                        printf("Object close_type[%d]: [ %s ]--------------------------------------->\n", nc_cnt, get_next_close());
-                        lua_pushstring(L, get_next_close());
+
                         lua_concat(L, 2);
                         strcpy(self->json, lua_tostring(L, -1));
                         lua_remove(L, -1);
-                        pop_next_close();
-                        if(depth > 0) depth--;
-                        if(nc_cnt == 1 && depth == 0)
-                        {
-                                parent_type = get_parent_type();
-                                parse_mode = self->get_type();
-                        }
-                        
-                        printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ DEPTH %d SELF %d @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n", depth, self->depth);
+                        pL.isNested = false;
+                        --depth;
+                        --pLr.depth;
                         break;
                 }
                 break;
         }
-        if(nc_cnt <= 0)
-        {
-                lua_pushstring(L, self->json);
-                lua_pushstring(L, get_root_close());
-                lua_concat(L, 2);
-                strcpy(self->json, lua_tostring(L, -1));
-                lua_remove(L, -1);
-                printf("Closing the ROOOOOOOOOOOOOOOOT ##################################################------------------------------------------------------------------------------\n");
-                pop_root_close();
-        }
+        
         // Pop table
         lua_pop(L, 1);
         // Stack is now the same as it was on entry to this function
@@ -1128,7 +733,6 @@ static int stringify_lua(lua_State *L)
         parseLua pL = {.ttype = -1, .ptype = -1, .ctype = -1, .ktype = -1, .vtype = -1, .nkey = 0, .isRoot = true, 
                                         .isParent = false, .isChild = false, .isNested = false, .json = buf, .key = NULL};
         pL.isRoot = true;
-        pL.get_type = get_parent_type;
         pL.json = buf;
         stringify(L, -1, &pL);
         lua_settop(L,0);

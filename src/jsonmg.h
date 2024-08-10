@@ -65,35 +65,27 @@ typedef struct
         bool isParent;
         bool isChild;
         bool isNested;
+
+        // MODE FLAGS
         bool unSuppoted;
         bool parentMode;
         bool childMode;
-        bool arrayMode;
-        bool nestMode;
 
-
-
-        const char *open_type;
         const char *close_type;
-        char *json;
         const char *key;
+        char *json;
+
         int (*get_type)();
-        //void (*print_device_bulb_preset)(Device *dev, uint8_t index);
+        
 } parseLua;
 
 static char buf[MAX_JSON_LEN];
 static int depth = 0;
 
-parseLua pLr = {.ttype = -1, .ptype = -1, .ctype = -1, .ktype = -1, .vtype = -1, .nkey = 0, .isRoot = true, 
-                                                .nestedP = false, .nestedC = false, .parentMode = true, .childMode = false, .isParent = false, .isChild = false, .isNested = false, .json = buf, .key = NULL};
-
 static double num = 0;
 static bool b;
 static long l;
 static char *sstr;
-
-
-int nextClose[MAX_DEPTH];
 
 bool isArrStr = false, isArrNum = false, isArrObj = false;
 
@@ -111,22 +103,18 @@ static const char *arrayString = "\"%s\"";
 static const char *arrayNumber = "%f";
 
 // OBJECT TYPES
-static const char *newObject = "{";  //----> JSON_OBJECT_TYPE
+static const char *newObject = "{";
 static const char *endObject = "}";     
-static const char *newKeyObject = "\"%s\":{"; // --> JSON_OBJECT_TYPE
-//static const char *endObject = "}";
-static const char *newNestedKeyObject = "{\"%s\":{"; // --> JSON_NESTED_OBJECT_TYPE;
+static const char *newKeyObject = "\"%s\":{";
+static const char *newNestedKeyObject = "{\"%s\":{";
 static const char *endNestedKeyObject = "}}";
-
 
 // ARRAY TYPES
 static const char *newArray = "[";
 static const char *endArray = "]";
 static const char *newKeyArray = "\"%s\":[";
-// static const char *endArray = "]";
 static const char *nestedKeyArray = "{\"%s\":[";
 static const char *endNestedKeyArray = "]}";
 
-//static const char *endnestObjArr = "}]";
 
 #endif /* JSONMG_H */

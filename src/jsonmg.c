@@ -336,10 +336,11 @@ static void stringify(lua_State *L, int index, parseLua *self)
                         }
                         /* VAL IS A STRING */              
                         case LUA_TSTRING:
+                        case LUA_TBOOLEAN:
                         {
                                 parent_type = self->get_type();
                                 switch(parent_type)
-                                {     
+                                {
                                         case JSON_ARRAY_TYPE:
                                         case JSON_NESTED_ARRAY_TYPE:
                                         {
@@ -348,14 +349,18 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                         case JSON_ARRAY_TYPE:
                                                         {
                                                                 const char *key = lua_tostring(L, -1);
-                                                                const char *val = lua_tostring(L, -2);
+                                                                const char *val = (valtype == LUA_TBOOLEAN) ? btoa(lua_toboolean(L, -2)) : lua_tostring(L, -2);
 
                                                                 switch(keytype)
                                                                 {
                                                                         case LUA_TSTRING:
                                                                         {
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, nestedkvString, key, val);
+                                                                                if(valtype == LUA_TBOOLEAN)
+                                                                                        lua_pushfstring(L, nestedkvBool, key, val);
+                                                                                else
+                                                                                        lua_pushfstring(L, nestedkvString, key, val);
+
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -364,7 +369,12 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                         case LUA_TNUMBER:
                                                                         {
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, arrayString, val);
+                                                                                if(valtype == LUA_TBOOLEAN)
+                                                                                        lua_pushfstring(L, arrayBool, val);
+                                                                                else
+                                                                                        lua_pushfstring(L, arrayString, val);
+
+                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -377,18 +387,25 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                         case JSON_OBJECT_TYPE:
                                                         {
                                                                 const char *key = lua_tostring(L, -1);
-                                                                const char *val = lua_tostring(L, -2);
-                                    
+                                                                const char *val = (valtype == LUA_TBOOLEAN) ? btoa(lua_toboolean(L, -2)) : lua_tostring(L, -2);
+
                                                                 switch(keytype)
                                                                 {
                                                                         case LUA_TSTRING:
                                                                         {
                                                                                 lua_pushstring(L, self->json);
                                                                                 if(parent_type != JSON_OBJECT_TYPE)
-                                                                                        lua_pushfstring(L, nestedkvString, key, val);
+                                                                                        if(valtype == LUA_TBOOLEAN)
+                                                                                                lua_pushfstring(L, nestedkvBool, key, val);
+                                                                                        else
+                                                                                                lua_pushfstring(L, nestedkvString, key, val);
                                                                                 else
-                                                                                        lua_pushfstring(L, kvString, key, val);
+                                                                                        if(valtype == LUA_TBOOLEAN)
+                                                                                                lua_pushfstring(L, kvBool, key, val);
+                                                                                        else
+                                                                                                lua_pushfstring(L, kvString, key, val);
 
+                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -397,7 +414,11 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                         case LUA_TNUMBER:
                                                                         {
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvString, key, val); 
+                                                                                if(valtype == LUA_TBOOLEAN)
+                                                                                                lua_pushfstring(L, kvBool, key, val);
+                                                                                        else
+                                                                                                lua_pushfstring(L, kvString, key, val); 
+                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -414,19 +435,25 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                         case JSON_OBJECT_TYPE:
                                         case JSON_NESTED_OBJECT_TYPE:
                                         {
+                                                //parse_mode = parent_type;
                                                 switch(parse_mode)
                                                 {
                                                         case JSON_ARRAY_TYPE:
                                                         {
+                                                                // string key string value in an array in an array [["dick":"shrivells" ** MUST BE NESTED 
                                                                 const char *key = lua_tostring(L, -1);
-                                                                const char *val = lua_tostring(L, -2);
- 
+                                                                const char *val = (valtype == LUA_TBOOLEAN) ? btoa(lua_toboolean(L, -2)) : lua_tostring(L, -2);
+
                                                                 switch(keytype)
                                                                 {
                                                                         case LUA_TSTRING:
                                                                         {
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, nestedkvString, key, val); 
+                                                                                if(valtype == LUA_TBOOLEAN)
+                                                                                        lua_pushfstring(L, nestedkvBool, key, val);
+                                                                                else
+                                                                                        lua_pushfstring(L, nestedkvString, key, val); 
+                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -436,10 +463,17 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                         {
                                                                                 lua_pushstring(L, self->json);
                                                                                 if(parent_type != JSON_ARRAY_TYPE)
-                                                                                        lua_pushfstring(L, kvString, key, val);
-                                                                                else
-                                                                                        lua_pushfstring(L, arrayString, val);
+                                                                                        if(valtype == LUA_TBOOLEAN)
+                                                                                                lua_pushfstring(L, kvBool, key, val);
+                                                                                        else
+                                                                                                lua_pushfstring(L, kvString, key, val);
+                                                                                else //if(depth < 1 && arrMode)
+                                                                                        if(valtype == LUA_TBOOLEAN)
+                                                                                                lua_pushfstring(L, arrayBool, val);
+                                                                                        else
+                                                                                                lua_pushfstring(L, arrayString, val);
 
+                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -452,14 +486,18 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                         case JSON_OBJECT_TYPE:
                                                         {
                                                                 const char *key = lua_tostring(L, -1);
-                                                                const char *val = lua_tostring(L, -2);
-                                                                
+                                                                const char *val = (valtype == LUA_TBOOLEAN) ? btoa(lua_toboolean(L, -2)) : lua_tostring(L, -2);
+
                                                                 switch(keytype)
                                                                 {
                                                                         case LUA_TSTRING:
                                                                         {
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvString, key, val);
+                                                                                if(valtype == LUA_TBOOLEAN)
+                                                                                                lua_pushfstring(L, kvBool, key, val);
+                                                                                        else
+                                                                                                lua_pushfstring(L, kvString, key, val);
+                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -468,7 +506,11 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                         case LUA_TNUMBER:
                                                                         {
                                                                                 lua_pushstring(L, self->json);
-                                                                                lua_pushfstring(L, kvString, key, val);
+                                                                                if(valtype == LUA_TBOOLEAN)
+                                                                                                lua_pushfstring(L, kvBool, key, val);
+                                                                                        else
+                                                                                                lua_pushfstring(L, kvString, key, val);
+                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -637,7 +679,6 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                 break;
                                         
                         }
-                        case LUA_TBOOLEAN:
                         case LUA_TFUNCTION:
                         case LUA_TUSERDATA:
                         case LUA_TLIGHTUSERDATA:
@@ -786,12 +827,12 @@ static int mg_key(lua_State *L)
 }
 
 bool isRoot = true;
-static int json_scan(lua_State *L, struct mg_str json, int depth)
+static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
 {
         if(isRoot || depth == 0)
                 isRoot = false;
 
-        static int idx = 1;
+        int idx = 1;
         int n = 0, o = mg_json_get(json, "$", &n);
         if (json.ptr[o] == '{' || json.ptr[o] == '[')
         {
@@ -921,7 +962,7 @@ static int json_scan(lua_State *L, struct mg_str json, int depth)
                         }
                         // found nested object or array
                         if (*val.ptr == '[' || *val.ptr == '{')
-                                json_scan(L, val, depth += 2);
+                                _lua_parse_json(L, val, depth += 2);
 
                         // found the end of the current object / array
                         char last = json.ptr[ofs];
@@ -966,7 +1007,7 @@ static int parse_json(lua_State *L)
         static int depth = 0;
         lua_settop(L, 0);
         lua_newtable(L);
-        json_scan(L, json, depth);
+        _lua_parse_json(L, json, depth);
         return 1;
 }
 

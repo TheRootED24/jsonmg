@@ -26,6 +26,8 @@ extern "C" {
 #define MAX_JSON_LEN 4096
 #define DEBUG 1
 
+#define btoa(x) ((x)?"true":"false")
+
 bool useAjson = false, useSjson = false, isArray = false;
 
 enum JSON_TYPES
@@ -76,7 +78,7 @@ typedef struct
         char *json;
 
         int (*get_type)();
-        
+
 } parseLua;
 
 static char buf[MAX_JSON_LEN];
@@ -94,13 +96,16 @@ static const char *nextJson = ",";
 
 // KEY/VALUE TYPES
 static const char *kvString = "\"%s\":\"%s\"";
+static const char *kvBool = "\"%s\":%s";
 static const char *kvNumber = "\"%s\":%f";
 static const char *nestedkvString = "{\"%s\":\"%s\"}";
 static const char *nestedkvNumber = "{\"%s\":%f}";
+static const char *nestedkvBool = "{\"%s\":%s}";
 
 // ARRAY VAULE TYPES
 static const char *arrayString = "\"%s\"";
 static const char *arrayNumber = "%f";
+static const char *arrayBool = "%s";
 
 // OBJECT TYPES
 static const char *newObject = "{";
@@ -115,6 +120,5 @@ static const char *endArray = "]";
 static const char *newKeyArray = "\"%s\":[";
 static const char *nestedKeyArray = "{\"%s\":[";
 static const char *endNestedKeyArray = "]}";
-
 
 #endif /* JSONMG_H */

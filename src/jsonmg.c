@@ -374,7 +374,6 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                                 else
                                                                                         lua_pushfstring(L, arrayString, val);
 
-                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -405,7 +404,6 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                                         else
                                                                                                 lua_pushfstring(L, kvString, key, val);
 
-                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -418,7 +416,6 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                                                 lua_pushfstring(L, kvBool, key, val);
                                                                                         else
                                                                                                 lua_pushfstring(L, kvString, key, val); 
-                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -453,7 +450,6 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                                         lua_pushfstring(L, nestedkvBool, key, val);
                                                                                 else
                                                                                         lua_pushfstring(L, nestedkvString, key, val); 
-                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -473,7 +469,6 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                                         else
                                                                                                 lua_pushfstring(L, arrayString, val);
 
-                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -497,7 +492,6 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                                                 lua_pushfstring(L, kvBool, key, val);
                                                                                         else
                                                                                                 lua_pushfstring(L, kvString, key, val);
-                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);
@@ -510,7 +504,6 @@ static void stringify(lua_State *L, int index, parseLua *self)
                                                                                                 lua_pushfstring(L, kvBool, key, val);
                                                                                         else
                                                                                                 lua_pushfstring(L, kvString, key, val);
-                                                                                dumpstack(L);
                                                                                 lua_concat(L, 2);
                                                                                 strcpy(self->json, lua_tostring(L, -1));
                                                                                 lua_remove(L, -1);

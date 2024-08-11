@@ -47,8 +47,8 @@ array
 
 ["string",100,true,[1,2,3],4,5,6]
 
-> nestedObj = jsonmg:stringify({I ="am", AN = "object", A = { NESTED = { object = true}}}) ** again oreder was not preserved, but the output is valid JSON just the same
+> nestedObj = jsonmg:stringify({I ="am", AN = "object", A = { NESTED = { object = true}}}) 
 > print(nestedObj)
 
-{"I":"am","A":{"NESTED":{"object":true}},"AN":"object"}
+{"I":"am","A":{"NESTED":{"object":true}},"AN":"object"} ** again oreder was not preserved, but the output is valid JSON just the same
 

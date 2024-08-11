@@ -47,8 +47,13 @@ array
 
 ["string",100,true,[1,2,3],4,5,6]
 
-> nestedObj = jsonmg:stringify({I ="am", AN = "object", A = { NESTED = { object = true}}}) 
+> nestedObj = jsonmg:stringify({I ="am", AN = "object", A = { NESTED = { object = true}}})
 > print(nestedObj)
 
-{"I":"am","A":{"NESTED":{"object":true}},"AN":"object"} ** again oreder was not preserved, but the output is valid JSON just the same
+{"I":"am","A":{"NESTED":{"object":true}},"AN":"object"} ** again oreder was not preserved, but the output is valid JSON just the same. And because valuse are accessed by key the order doesn't matter
+
+> lua_nestedObj = jsonmg:parse(nestedObj)
+> print(lua_nestedObj.A.NESTED.object)
+
+true
 

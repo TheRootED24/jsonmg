@@ -15,7 +15,7 @@
  *  If not, see <https://www.gnu.org/licenses/>
  */
 
-#ifndef JSONMG_H
+#ifndef MONGOOSE_H
 #define JSONMG_H
 
 #define JSON_MG "jsonmg"
@@ -32,8 +32,13 @@
 #include <lua.hpp>
 extern "C" {
 #endif
+
 // MONGOOSE C LIB
+#ifndef MONGOOSE_H
+#include <mgjson.h>
+#else
 #include <mongoose.h>
+#endif
 
 #ifdef __cplusplus
 }

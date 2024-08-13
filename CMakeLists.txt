@@ -12,10 +12,10 @@ project(jsonmg)
 set(PROJECT_NAME jsonmg)
 
 # Version
-set(VERSION_MAJ      1)
-set(VERSION_MIN      0)
+set(VERSION_MAJ      7)
+set(VERSION_MIN      1)
 set(VERSION_CL       0)
-set(VERSION_PL       0)
+set(VERSION_PL       4)
 set(VERSION_BN       0)
 set(VERSION ${VERSION_MAJ}.${VERSION_MIN}.${VERSION_PL})
 

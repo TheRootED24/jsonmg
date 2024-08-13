@@ -844,9 +844,9 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
 
         int idx = 1;
         int n = 0, o = mg_json_get(json, "$", &n);
-        if (json.ptr[o] == '{' || json.ptr[o] == '[')
+        if (json.buf[o] == '{' || json.buf[o] == '[')
         {
-                struct mg_str key, val, sub = mg_str_n(json.ptr + o, (size_t)n);
+                struct mg_str key, val, sub = mg_str_n(json.buf + o, (size_t)n);
                 size_t ofs = 0;
                 while ((ofs = mg_json_next(sub, ofs, &key, &val)) > 0)
                 {
@@ -854,26 +854,26 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
                         bool isKeyed = key.len > 0 ? true : false;
 
                         if (isKeyed)
-                        {       // key.ptr+1 & key.len-2 to remove quotes
-                                lua_pushlstring(L, key.ptr + 1, key.len - 2); 
+                        {       // key.buf+1 & key.len-2 to remove quotes
+                                lua_pushlstring(L, key.buf + 1, key.len - 2); 
                                 // mg_key creates jkey and pushes it onto stack,
                                 mg_key(L);
                                 // save a copy of jkey
                                 jkey = lua_tostring(L, -1);
                                 // remove jkey from stack,
                                 lua_remove(L, -1);
-                                json_type(L, jkey, (char *)val.ptr, &json);
+                                json_type(L, jkey, (char *)val.buf, &json);
                         }
                         // since we are using the builtin mongoose json_get functions to determine type, we must create a json object,
                         // containing a key:value pair so we can check the VALUE type. 
                         else
                         {
                                 // construct a json object with a dummy key and the value to type check value
-                                char *buf = mg_mprintf("{ %m: %.*s }", MG_ESC("dkey"), (int)val.len, val.ptr);
+                                char *buf = mg_mprintf("{ %m: %.*s }", MG_ESC("dkey"), (int)val.len, val.buf);
                                 struct mg_str djson = mg_str(buf);
                                 const char *dkey = "$.dkey";
 
-                                json_type(L, dkey, (char *)val.ptr, &djson);
+                                json_type(L, dkey, (char *)val.buf, &djson);
                                 free(buf);
                         }
 
@@ -884,7 +884,7 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
                                 {
                                         if (isKeyed)
                                         {
-                                                lua_pushlstring(L, key.ptr+1, key.len-2);
+                                                lua_pushlstring(L, key.buf+1, key.len-2);
                                                 lua_pushnumber(L, num);
                                         }
                                         else
@@ -899,7 +899,7 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
                                 {
                                         if (isKeyed)
                                         {
-                                                lua_pushlstring(L, key.ptr+1, key.len-2);
+                                                lua_pushlstring(L, key.buf+1, key.len-2);
                                                 lua_pushboolean(L, b);
                                         }
                                         else
@@ -914,7 +914,7 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
                                 {
                                         if (isKeyed)
                                         {
-                                                lua_pushlstring(L, key.ptr+1, key.len-2);
+                                                lua_pushlstring(L, key.buf+1, key.len-2);
                                                 lua_pushnumber(L, l);
                                         }
                                         else
@@ -929,7 +929,7 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
                                 {
                                         if (isKeyed)
                                         {
-                                                lua_pushlstring(L, key.ptr+1, key.len-2);
+                                                lua_pushlstring(L, key.buf+1, key.len-2);
                                                 lua_pushstring(L, sstr);
                                         }
                                         else
@@ -945,7 +945,7 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
                                 {
                                         if (isKeyed)
                                         {
-                                                lua_pushlstring(L, key.ptr+1, key.len-2);
+                                                lua_pushlstring(L, key.buf+1, key.len-2);
                                                 lua_newtable(L);
                                         }
                                         else
@@ -959,7 +959,7 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
                                 {
                                         if (isKeyed)
                                         {
-                                                lua_pushlstring(L, key.ptr+1, key.len-2);
+                                                lua_pushlstring(L, key.buf+1, key.len-2);
                                                 lua_newtable(L);
                                         }
                                         else
@@ -971,11 +971,11 @@ static int _lua_parse_json(lua_State *L, struct mg_str json, int depth)
                                 }
                         }
                         // found nested object or array
-                        if (*val.ptr == '[' || *val.ptr == '{')
+                        if (*val.buf == '[' || *val.buf == '{')
                                 _lua_parse_json(L, val, depth += 2);
 
                         // found the end of the current object / array
-                        char last = json.ptr[ofs];
+                        char last = json.buf[ofs];
                         if (last == ']' || last == '}')
                         {
                                 // we're finished parsing when stack size is 1

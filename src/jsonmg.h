@@ -34,6 +34,7 @@ extern "C" {
 #endif
 // MONGOOSE C LIB
 #include <mongoose.h>
+//#include <mgjson.h>
 
 #ifdef __cplusplus
 }

@@ -15,6 +15,8 @@ project(
 
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
 add_library(jsonmg SHARED jsonmg.c)
+set_target_properties(jsonmg PROPERTIES VERSION ${CMAKE_PROJECT_VERSION}
+SOVERSION ${PROJECT_VERSION_MAJOR} )
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fpic")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 target_link_libraries(jsonmg libmgjson.so)
@@ -23,4 +25,6 @@ target_link_libraries(jsonmg libmongoose.so)
 endif()
 target_link_libraries(jsonmg liblua.so)
 target_link_libraries(jsonmg m)
+
 install(TARGETS jsonmg DESTINATION /usr/lib/lua/jsonmg/)
+

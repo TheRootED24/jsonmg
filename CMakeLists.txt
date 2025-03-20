@@ -15,7 +15,7 @@ set(PROJECT_NAME jsonmg)
 set(VERSION_MAJ      7)
 set(VERSION_MIN      1)
 set(VERSION_CL       0)
-set(VERSION_PL       4)
+set(VERSION_PL       7)
 set(VERSION_BN       0)
 set(VERSION ${VERSION_MAJ}.${VERSION_MIN}.${VERSION_PL})
 

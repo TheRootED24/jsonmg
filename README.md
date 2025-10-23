@@ -9,7 +9,7 @@ cmake .
 make
 ```
 # Usage
-```
+```lua
 
 lua
 Lua 5.1.5  Copyright (C) 1994-2012 Lua.org, PUC-Rio (double int32)
@@ -35,7 +35,7 @@ array
 > object = jsonmg:stringify({I = "am", VERY = "simple", JSON = "object"})
 > print(object)
 
-{"I":"am","JSON":"object","VERY":"simple"}  **Note that in Lua, the order returned for key value tables is not respected, where as an numeric indexed (array) table does
+{"I":"am","JSON":"object","VERY":"simple"} 
 
 > object = jsonmg:stringify({I = "am", A = { "JSON",  {object = {true}}}})
 > print(object)
@@ -50,7 +50,7 @@ array
 > nestedObj = jsonmg:stringify({I ="am", AN = "object", A = { NESTED = { object = true}}})
 > print(nestedObj)
 
-{"I":"am","A":{"NESTED":{"object":true}},"AN":"object"} ** again oreder was not preserved, but the output is valid JSON just the same. And because valuse are accessed by key the order doesn't matter
+{"I":"am","A":{"NESTED":{"object":true}},"AN":"object"}
 
 > lua_nestedObj = jsonmg:parse(nestedObj)
 > print(lua_nestedObj.A.NESTED.object)
